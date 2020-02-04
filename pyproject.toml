@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "tvm-news"
+name = "gh-news"
 version = "0.1.0"
 description = ""
 authors = ["Jared Roesch <jroesch@octoml.ai>"]
@@ -14,8 +14,7 @@ pystache = "^0.5.4"
 pytest = "^3.0"
 
 [tool.poetry.scripts]
-tvm-news = 'tvm_news:main'
+gh-news = 'gh_news:main'
 [build-system]
 requires = ["poetry>=0.12"]
 build-backend = "poetry.masonry.api"
-

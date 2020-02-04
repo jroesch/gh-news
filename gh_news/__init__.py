@@ -43,8 +43,8 @@ def get_user_activity(g, user_name, date_filter):
 
 
 def render_report(out_path, report_content):
-    tvm_news_dir = pathlib.Path(__file__).parent.absolute().parent
-    with open(tvm_news_dir.joinpath('template.md'), 'r') as template:
+    gh_news_dir = pathlib.Path(__file__).parent.absolute().parent
+    with open(gh_news_dir.joinpath('template.md'), 'r') as template:
         content = pystache.render(template.read(), report_content)
         with open(out_path, 'w') as out_file:
             out_file.write(content)
@@ -72,7 +72,7 @@ def download_report(github, month, year):
 
     return (prs, report, team)
 
-CACHE_PATH = os.path.expanduser('~/.tvm_news_cache')
+CACHE_PATH = os.path.expanduser('~/.gh_news_cache')
 
 def parse_title(pr):
     title = html.unescape(pr.title)

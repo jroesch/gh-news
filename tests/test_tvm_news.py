@@ -1,4 +1,4 @@
-from tvm_news import __version__
+from gh_news import __version__
 
 
 def test_version():
