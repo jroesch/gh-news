@@ -139,7 +139,7 @@ def main():
                     help='the year to generate a report for')
     parser.add_argument('--month', metavar='MONTH', type=int, nargs=1,
                     help='the month to generate a report for')
-    parser.add_argument('--clean', help="remove and regenerate the cached data from the month")
+    parser.add_argument('--clean', help="remove and regenerate the cached data from the month", default=False)
 
     args = parser.parse_args()
     month = args.month[0]
@@ -147,7 +147,7 @@ def main():
 
     github = Github(token)
 
-    if os.path.isfile(CACHE_PATH):
+    if os.path.isfile(CACHE_PATH) and not args.clean:
         with open(CACHE_PATH, 'rb+') as cache_file:
             data = pickle.load(cache_file)
     else:
