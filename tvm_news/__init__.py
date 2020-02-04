@@ -8,6 +8,7 @@ import calendar
 import datetime
 import pathlib
 import pickle
+import html
 
 from collections import defaultdict
 
@@ -74,7 +75,8 @@ def download_report(github, month, year):
 CACHE_PATH = os.path.expanduser('~/.tvm_news_cache')
 
 def parse_title(pr):
-    splits = pr.title.split("]")
+    title = html.unescape(pr.title)
+    splits = title.split("]")
     tags = []
     raw_tags = splits[:-1]
 
@@ -120,7 +122,7 @@ def render_prs(tagged_prs):
     for tag in tagged_prs:
         out_string += f"# {tag}\n"
         for title, pr in tagged_prs[tag]:
-            out_string += f"- {title} [#{pr.number}]({pr.url})\n"
+            out_string += f"- {title} [#{pr.number}]({pr.html_url})\n"
         out_string += "\n"
     return out_string
 
@@ -156,15 +158,6 @@ def main():
         print(colored("Cached!", 'green'))
 
     prs, report, team = data
-
-    # REMOVE ME WHEN DONE
-    repo = github.get_repo(REPO)
-    team = [c.login for c in repo.get_contributors()]
-    first_day, date_filter = date_filter_for_month(month, year)
-
-    # Get Pull Requests
-    prs_query = f"repo:{REPO} merged:>={first_day} sort:updated-asc"
-    prs = list(github.search_issues(prs_query))
 
     tagged_prs = bucket_by_tag(prs)
     prs_string = render_prs(tagged_prs)
