@@ -9,6 +9,8 @@ import datetime
 import pathlib
 import pickle
 
+from collections import defaultdict
+
 import pystache
 from termcolor import colored
 from github import Github
@@ -40,11 +42,12 @@ def get_user_activity(g, user_name, date_filter):
 
 
 def render_report(out_path, report_content):
-    tvm_news_dir = pathlib.Path(__file__).parent.absolute()
-    with open(tvm_news_dir.joinpath('template.md', 'r')) as template:
+    tvm_news_dir = pathlib.Path(__file__).parent.absolute().parent
+    with open(tvm_news_dir.joinpath('template.md'), 'r') as template:
         content = pystache.render(template.read(), report_content)
         with open(out_path, 'w') as out_file:
             out_file.write(content)
+
 
 def download_report(github, month, year):
     repo = github.get_repo(REPO)
@@ -55,6 +58,9 @@ def download_report(github, month, year):
     prs_query = f"repo:{REPO} merged:>={first_day} sort:updated-asc"
     prs = list(github.search_issues(prs_query))
 
+    # WARNING: Search API only supports 30 req/s: https://developer.github.com/v3/search/
+    time.sleep(60)
+
     # get activities
     report = {}
     for member in team:
@@ -64,6 +70,59 @@ def download_report(github, month, year):
         time.sleep(5)
 
     return (prs, report, team)
+
+CACHE_PATH = os.path.expanduser('~/.tvm_news_cache')
+
+def parse_title(pr):
+    splits = pr.title.split("]")
+    tags = []
+    raw_tags = splits[:-1]
+
+    for tag in raw_tags:
+        tags += tag.split(",")
+
+    title = splits[-1]
+    return tags, title.strip("] \t")
+
+def normalize_tag(tag):
+    return tag.strip(" []{}\t,").lower().capitalize()
+
+def bucket_by_tag(prs):
+    tag_count = {}
+    final_tags = defaultdict(list)
+    tagged_prs = []
+
+    for pr in prs:
+        tags, title = parse_title(pr)
+        tags = [normalize_tag(tag) for tag in tags]
+
+        for tag in tags:
+            tag_count[tag] = tag_count.get(tag, 0) + 1
+
+        tagged_prs.append((tags, title, pr))
+
+    for tags, title, pr in tagged_prs:
+        top_tag = None
+        for tag in tags:
+            if tag_count.get(top_tag, 0) < tag_count[tag]:
+                top_tag = tag
+
+        if tag_count.get(top_tag, 0) < 5:
+            final_tags["Fixes"].append((title, pr))
+        else:
+            final_tags[top_tag].append((title, pr))
+
+    return final_tags
+
+
+def render_prs(tagged_prs):
+    out_string = ""
+    for tag in tagged_prs:
+        out_string += f"# {tag}\n"
+        for title, pr in tagged_prs[tag]:
+            out_string += f"- {title} [#{pr.number}]({pr.url})\n"
+        out_string += "\n"
+    return out_string
 
 def main():
     # Grab your GH token.
@@ -85,15 +144,30 @@ def main():
     year = args.year[0]
 
     github = Github(token)
-    if os.path.isfile('~/.tvm_news_cache'):
-        data = pickle.load('~/.tvm_news_cache')
+
+    if os.path.isfile(CACHE_PATH):
+        with open(CACHE_PATH, 'rb+') as cache_file:
+            data = pickle.load(cache_file)
     else:
         data = download_report(github, month, year)
         print(colored("Caching the results from GitHub ...", 'green'))
-        pickle.dump('~/.tvm_news_cache')
+        with open(CACHE_PATH, 'wb+') as cache_file:
+            pickle.dump(data, cache_file)
         print(colored("Cached!", 'green'))
 
     prs, report, team = data
+
+    # REMOVE ME WHEN DONE
+    repo = github.get_repo(REPO)
+    team = [c.login for c in repo.get_contributors()]
+    first_day, date_filter = date_filter_for_month(month, year)
+
+    # Get Pull Requests
+    prs_query = f"repo:{REPO} merged:>={first_day} sort:updated-asc"
+    prs = list(github.search_issues(prs_query))
+
+    tagged_prs = bucket_by_tag(prs)
+    prs_string = render_prs(tagged_prs)
 
     authors = [member for member in team if report[member]['author']]
     authors.sort(key=lambda x:-len(report[x]['author']))
@@ -116,6 +190,7 @@ def main():
     render_report("the_report.md", {
         'month': month,
         'year': year,
+        'prs': prs_string,
         'authors': authors_string,
         'reviewers': reviewers_string,
     })
