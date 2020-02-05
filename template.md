@@ -8,6 +8,8 @@ Feedback and suggestions are welcomed so that we can further improve these updat
 # Community
 FILL ME IN
 
+This forum got PAGEVIEWS pageviews, USERVISTS user visits in the last month.
+
 # Pull Requests
 
 The below is high-level summary of the PRs closed in the last month grouped by area.
